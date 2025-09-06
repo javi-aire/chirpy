@@ -1,0 +1,36 @@
+{
+  "name": "chirpy",
+  "version": "1.0.0",
+  "description": "a boot.dev project",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "npx tsc",
+    "start": "node dist/index.js",
+    "dev": "npx tsc && node dist/index.js",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/javi-aire/chirpy.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/javi-aire/chirpy/issues"
+  },
+  "homepage": "https://github.com/javi-aire/chirpy#readme",
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.1",
+    "drizzle-kit": "^0.31.4",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.5",
+    "express": "^5.1.0",
+    "postgres": "^3.4.7"
+  }
+}
