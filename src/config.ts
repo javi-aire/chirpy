@@ -5,6 +5,7 @@ type APIConfig = {
 	fileServerHits: number;
 	db: DBConfig;
 	platform: string;
+	secret: string;
 }
 
 type DBConfig = {
@@ -52,5 +53,6 @@ export const config: APIConfig = {
 	db: {
 		url: `${process.env.DB_URL}`,
 		migrationConfig
-	}
+	},
+	secret: `${process.env.SECRET}`
 }

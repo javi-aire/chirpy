@@ -3,8 +3,23 @@ import type { Request, Response, NextFunction } from 'express';
 import postgres from "postgres";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { createUser, deleteAll } from './db/queries/users.js';
-import { createChirp } from './db/queries/chirps.js';
+import { 
+	createUser, 
+	deleteAll,
+	getUser
+} from './db/queries/users.js';
+import type { UserResponse } from './db/queries/users.js';
+import { 
+	createChirp,
+	getAllChirps,
+	getChirp
+} from './db/queries/chirps.js';
+import { 
+	checkPasswordHash, 
+	makeJwt, 
+	validateJwt,
+	getBearerToken
+} from './db/auth.js';
 import { 
 	config,
 	BadRequestError,
@@ -91,23 +106,61 @@ app.post('/api/users', async (req: Request, res: Response, next: NextFunction) =
 	res.status(201).send(resp);
 });
 
+app.post('/api/login', async (req: Request, res: Response, next: NextFunction) => {
+	const { email, password } = req.body;
+	const expiresIn = req.body?.expiresInSeconds !== undefined 
+		? req.body.expiresInSeconds > 3600 
+			? 3600 
+			: req.body.expiresInSeconds 
+		: 3600;
+	
+	try {
+		// lookup user by email
+		const user = await getUser(email);
+		// compare password and hashedPassword using checkPasswordHash function
+		const isValidUser = await checkPasswordHash(password, user.hashedPassword);
+		if(isValidUser) {
+			const { hashedPassword: _, ...validUser } = user;
+			const token = makeJwt(validUser.id, expiresIn, config.secret)
+			res.status(200).send({ ...validUser, token });
+		} else {
+			errorHandler(
+				new UnauthorizedError('Incorrect email or password'),
+				req,
+				res,
+				next
+			);
+		}
+	} catch (err) {
+		// if there's any err, call errorHandler w/ new UnauthorizedError('Incorrect email or password')
+		errorHandler(
+			new UnauthorizedError('Incorrect email or password'),
+			req,
+			res,
+			next
+		);
+	}
+});
+
 app.post('/api/chirps', async (req: Request, res: Response, next: NextFunction) => {
 	type parameters = {
 		body: string;
-		userId: string;
 	}
 
 	try {
 		const reqBody: parameters = req.body;
-	 	const { body: chirp, userId } = reqBody;
-	 	if(chirp.length <= 140) {
+	 	const { body: chirp } = reqBody;
+	 	const token = getBearerToken(req);
+	 	const tokenSub = validateJwt(token, config.secret);
+
+	 	if(tokenSub && chirp.length <= 140) {
 	 		let chirpArr = chirp.split(' ');
 	 		const isProfrane = (word: string) => word === 'kerfuffle' || word === 'sharbert' || word === 'fornax';
 	 		chirpArr = chirpArr.map(word => {
 	 			return isProfrane(word.toLowerCase()) ? '****' : word;
 	 		});
 	 		const validChirp = chirpArr.join(' ');
-	 		const newChirp = await createChirp({ body: validChirp, userId });
+	 		const newChirp = await createChirp({ body: validChirp, userId: tokenSub });
 	 		
 	 		res.status(201).send(newChirp);
 	 	} else {
@@ -115,6 +168,31 @@ app.post('/api/chirps', async (req: Request, res: Response, next: NextFunction) 
 	 	}
 	} catch (err) {
 		next(err);
+	}
+});
+
+app.get('/api/chirps', async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const chirps = await getAllChirps();
+
+		res.status(200).send(chirps);
+	} catch (err) {
+		errorHandler(
+			new BadRequestError('Something has gone wrong. Please try again.'),
+			req,
+			res,
+			next
+		);
+	}
+});
+
+app.get('/api/chirps/:chirpID', async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const chirp = await getChirp(req.params.chirpID);
+
+		res.status(200).send(chirp);
+	} catch (err) {
+		errorHandler(new NotFoundError('Chirp not found.'), req, res, next);
 	}
 });
 
